@@ -1,7 +1,8 @@
 import { FRIEND_MACHINE_GALLERY } from '../data/friends'
-import type { FriendMachineOffer } from '../types'
+import type { FriendMachineOffer, MachineType } from '../types'
 import { MACHINE_META } from '../types'
 import { MachineShell } from './MachineShell'
+import { useMemo, useState } from 'react'
 
 interface Props {
   onClose: () => void
@@ -9,16 +10,45 @@ interface Props {
 }
 
 export function Gallery({ onClose, onRemix }: Props) {
+  const [filter, setFilter] = useState<MachineType | 'all'>('all')
+  const offers = useMemo(
+    () =>
+      filter === 'all'
+        ? FRIEND_MACHINE_GALLERY
+        : FRIEND_MACHINE_GALLERY.filter((o) => o.type === filter),
+    [filter],
+  )
+
   return (
     <div className="overlay">
       <div className="sheet gallery-sheet">
         <header>
           <h2>Friends’ machines</h2>
-          <p>Remix into your attic — credit stays with the original author.</p>
+          <p>One tap remix — credit stays with the original author.</p>
         </header>
 
+        <div className="chip-row">
+          <button
+            type="button"
+            className={`chip ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            All
+          </button>
+          {(Object.keys(MACHINE_META) as MachineType[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`chip ${filter === t ? 'active' : ''}`}
+              onClick={() => setFilter(t)}
+            >
+              {MACHINE_META[t].glyph} {MACHINE_META[t].label}
+            </button>
+          ))}
+        </div>
+
         <ul className="gallery-list">
-          {FRIEND_MACHINE_GALLERY.map((offer) => (
+          {offers.map((offer) => (
             <li key={offer.id}>
               <MachineShell
                 machine={{

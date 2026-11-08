@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { Machine } from '../types'
 import { MACHINE_META } from '../types'
+import { LaneDash } from '../games/LaneDash'
 import { OrbCatch } from '../games/OrbCatch'
 import { WallZap } from '../games/WallZap'
 import { MachineShell } from './MachineShell'
@@ -9,9 +10,10 @@ interface Props {
   machine: Machine
   onClose: () => void
   onScore: (machineId: string, score: number) => void
+  onRemixMine?: (machine: Machine) => void
 }
 
-export function PlayModal({ machine, onClose, onScore }: Props) {
+export function PlayModal({ machine, onClose, onScore, onRemixMine }: Props) {
   const [result, setResult] = useState<{ score: number; won: boolean } | null>(null)
   const [nonce, setNonce] = useState(0)
 
@@ -22,6 +24,15 @@ export function PlayModal({ machine, onClose, onScore }: Props) {
     },
     [machine.id, onScore],
   )
+
+  const game =
+    machine.type === 'orb-catch' ? (
+      <OrbCatch key={nonce} config={machine.config} onDone={finish} />
+    ) : machine.type === 'wall-zap' ? (
+      <WallZap key={nonce} config={machine.config} onDone={finish} />
+    ) : (
+      <LaneDash key={nonce} config={machine.config} onDone={finish} />
+    )
 
   return (
     <div className="overlay">
@@ -43,20 +54,29 @@ export function PlayModal({ machine, onClose, onScore }: Props) {
         </header>
 
         {!result ? (
-          machine.type === 'orb-catch' ? (
-            <OrbCatch key={nonce} config={machine.config} onDone={finish} />
-          ) : (
-            <WallZap key={nonce} config={machine.config} onDone={finish} />
-          )
+          game
         ) : (
           <div className="play-result">
-            <p className="result-badge">{result.won ? 'Clear!' : 'Try again'}</p>
+            <p className={`result-badge ${result.won ? 'win' : ''}`}>
+              {result.won ? 'Clear!' : 'Try again'}
+            </p>
             <p className="result-score">Score {result.score}</p>
-            <p className="muted">Best on this cabinet: {Math.max(machine.highScore, result.score)}</p>
+            <p className="muted">
+              Best on this cabinet: {Math.max(machine.highScore, result.score)}
+            </p>
             <div className="sheet-actions">
               <button type="button" className="btn ghost" onClick={onClose}>
                 Back to attic
               </button>
+              {onRemixMine && (
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => onRemixMine(machine)}
+                >
+                  Remix this
+                </button>
+              )}
               <button
                 type="button"
                 className="btn primary"
