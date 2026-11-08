@@ -194,7 +194,7 @@ export function WallZap({ config, onDone }: Props) {
           Hits <strong>{score}</strong> / {config.target}
         </span>
         <span>
-          Lives <strong>♥♥♥</strong>
+          Lives <strong>{'♥'.repeat(Math.max(0, lives))}</strong>
         </span>
       </div>
       <canvas
