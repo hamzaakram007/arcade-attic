@@ -149,7 +149,7 @@ export function OrbCatch({ config, onDone }: Props) {
           Score <strong>{score}</strong> / {config.target}
         </span>
         <span>
-          Lives <strong>{'♥'.repeat(Math.max(0, lives))}</strong>
+          Lives <strong>{'\u2665'.repeat(Math.max(0, lives))}</strong>
         </span>
       </div>
       <canvas
