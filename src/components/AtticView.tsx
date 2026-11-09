@@ -1,11 +1,12 @@
-import type { AtticState, DecorId, Machine } from '../types'
-import { DECOR_CATALOG, GRID_COLS, GRID_ROWS, SHELL_STYLES } from '../types'
+import type { AtticState, DecorId, FloorTheme, Machine } from '../types'
+import { DECOR_CATALOG, FLOOR_THEMES, GRID_COLS, GRID_ROWS } from '../types'
 import { MachineShell } from './MachineShell'
 
 interface Props {
   attic: AtticState
-  mode: 'build' | 'place-machine' | 'visit'
+  mode: 'build' | 'place-machine' | 'visit' | 'move-machine'
   placingMachineId?: string | null
+  movingMachineId?: string | null
   onSelectCell: (index: number) => void
   onSelectMachine: (machine: Machine) => void
   onSelectDecor: (id: DecorId | null) => void
@@ -13,6 +14,10 @@ interface Props {
   onOpenParty: () => void
   onOpenGallery: () => void
   onReset: () => void
+  onSetFloor: (theme: FloorTheme) => void
+  onStartMove: (machine: Machine) => void
+  onDeleteMachine: (machine: Machine) => void
+  onLeaveCompliment?: (kind: import('../types').ComplimentId) => void
   toast?: string | null
 }
 
@@ -20,6 +25,7 @@ export function AtticView({
   attic,
   mode,
   placingMachineId,
+  movingMachineId,
   onSelectCell,
   onSelectMachine,
   onSelectDecor,
@@ -27,9 +33,14 @@ export function AtticView({
   onOpenParty,
   onOpenGallery,
   onReset,
+  onSetFloor,
+  onStartMove,
+  onDeleteMachine,
+  onLeaveCompliment,
   toast,
 }: Props) {
   const machineAt = (cell: number) => attic.machines.find((m) => m.cell === cell)
+  const floor = FLOOR_THEMES[attic.floorTheme]
 
   return (
     <div className="attic-screen">
@@ -38,9 +49,10 @@ export function AtticView({
           <p className="brand sm">Arcade Attic</p>
           <h1>{attic.name}</h1>
           <p className="muted">
-            Code <strong>{attic.code}</strong>
+            Code <strong className="code-inline">{attic.code}</strong>
             {attic.partyOpen ? ' · party open' : ''}
             {attic.friends.length > 0 ? ` · ${attic.friends.length} visiting` : ''}
+            {attic.visitCount > 0 ? ` · ${attic.visitCount} peeks` : ''}
           </p>
         </div>
         <div className="attic-actions">
@@ -58,22 +70,38 @@ export function AtticView({
 
       {toast && <div className="toast">{toast}</div>}
 
-      <div className="attic-stage">
+      {(mode === 'place-machine' || mode === 'move-machine') && (
+        <div className="place-banner">
+          {mode === 'place-machine'
+            ? 'Tap an empty glowing tile to drop your cabinet.'
+            : 'Tap an empty tile to move this cabinet.'}
+        </div>
+      )}
+
+      <div className={`attic-stage ${floor.className}`}>
+        <div className="attic-beams" aria-hidden />
         <div
           className="attic-grid"
           style={{ '--cols': GRID_COLS, '--rows': GRID_ROWS } as React.CSSProperties}
         >
           {attic.cells.map((decor, i) => {
             const machine = machineAt(i)
-            const isPlacing = mode === 'place-machine' && placingMachineId
+            const isPlacing =
+              (mode === 'place-machine' && placingMachineId) ||
+              (mode === 'move-machine' && movingMachineId)
+            const isMovingSource = movingMachineId && machine?.id === movingMachineId
             return (
               <button
                 key={i}
                 type="button"
                 className={`cell ${decor ? 'has-decor' : ''} ${machine ? 'has-machine' : ''} ${
-                  isPlacing ? 'place-target' : ''
-                }`}
+                  isPlacing && !machine ? 'place-target' : ''
+                } ${isMovingSource ? 'moving-source' : ''}`}
                 onClick={() => {
+                  if (mode === 'move-machine') {
+                    onSelectCell(i)
+                    return
+                  }
                   if (machine && mode !== 'place-machine') onSelectMachine(machine)
                   else onSelectCell(i)
                 }}
@@ -97,9 +125,32 @@ export function AtticView({
         {attic.friends.length > 0 && (
           <div className="visitor-rail" aria-label="Visiting friends">
             {attic.friends.map((f) => (
-              <span key={f.id} className="visitor" style={{ background: f.color }} title={f.name}>
+              <span
+                key={f.id}
+                className={`visitor ${f.status}`}
+                style={{ background: f.color }}
+                title={`${f.name} · ${f.status}`}
+              >
                 {f.name[0]}
-                <em>{f.status === 'playing' ? '▶' : ''}</em>
+                <em>{f.status === 'playing' ? '▶' : f.status === 'cheering' ? '★' : ''}</em>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {attic.compliments.length > 0 && (
+          <div className="compliment-float" aria-label="Compliments">
+            {attic.compliments.slice(-5).map((c) => (
+              <span key={c.id} className="comp-chip">
+                {c.kind === 'star'
+                  ? '⭐'
+                  : c.kind === 'fire'
+                    ? '🔥'
+                    : c.kind === 'heart'
+                      ? '💛'
+                      : c.kind === 'clap'
+                        ? '👏'
+                        : '😮'}
               </span>
             ))}
           </div>
@@ -108,6 +159,22 @@ export function AtticView({
 
       {mode !== 'visit' && (
         <footer className="build-dock">
+          <div className="dock-section">
+            <span className="dock-label">Floor vibe</span>
+            <div className="chip-row">
+              {(Object.keys(FLOOR_THEMES) as FloorTheme[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`chip ${attic.floorTheme === t ? 'active' : ''}`}
+                  onClick={() => onSetFloor(t)}
+                >
+                  {FLOOR_THEMES[t].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="dock-section">
             <span className="dock-label">Décor</span>
             <div className="dock-scroll">
@@ -132,15 +199,41 @@ export function AtticView({
               </button>
             </div>
           </div>
+
+          {attic.machines.length > 0 && (
+            <div className="dock-section machine-tools">
+              <span className="dock-label">Cabinets</span>
+              <div className="dock-scroll">
+                {attic.machines.map((m) => (
+                  <div key={m.id} className="machine-tool">
+                    <span className="machine-tool-name">{m.name}</span>
+                    <button
+                      type="button"
+                      className="btn ghost tight"
+                      onClick={() => onStartMove(m)}
+                    >
+                      Move
+                    </button>
+                    <button
+                      type="button"
+                      className="btn ghost tight"
+                      onClick={() => onDeleteMachine(m)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="dock-cta">
             <button type="button" className="btn primary" onClick={onOpenWorkshop}>
               + New machine
             </button>
             <p className="dock-tip">
-              Tap a tile to place décor. Tap a cabinet to play. Shell preview:{' '}
-              <span style={{ color: SHELL_STYLES[attic.selectedShell].trim }}>
-                {SHELL_STYLES[attic.selectedShell].label}
-              </span>
+              Tap tiles for décor. Author a cabinet in under a minute. Remix friends’ games from
+              the gallery.
             </p>
           </div>
         </footer>
@@ -148,7 +241,29 @@ export function AtticView({
 
       {mode === 'visit' && (
         <footer className="build-dock visit">
-          <p>You’re visiting — play cabinets, leave compliments (no open chat).</p>
+          <p>You’re visiting — play cabinets, leave a compliment (no open chat).</p>
+          {onLeaveCompliment && (
+            <div className="compliment-bar">
+              {(
+                [
+                  ['star', '⭐'],
+                  ['fire', '🔥'],
+                  ['heart', '💛'],
+                  ['clap', '👏'],
+                  ['wow', '😮'],
+                ] as const
+              ).map(([id, glyph]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="chip compliment-btn"
+                  onClick={() => onLeaveCompliment(id)}
+                >
+                  {glyph}
+                </button>
+              ))}
+            </div>
+          )}
         </footer>
       )}
     </div>

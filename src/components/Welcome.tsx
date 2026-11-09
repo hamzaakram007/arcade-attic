@@ -3,7 +3,7 @@ import { SAMPLE_JOIN_CODES } from '../data/friends'
 
 interface Props {
   onCreate: (name: string) => void
-  onJoin: (code: string) => void
+  onJoin: (codeOrToken: string) => void
   hasSave: boolean
   onContinue: () => void
 }
@@ -14,12 +14,17 @@ export function Welcome({ onCreate, onJoin, hasSave, onContinue }: Props) {
 
   return (
     <div className="welcome">
-      <div className="welcome-sky" aria-hidden />
+      <div className="welcome-sky" aria-hidden>
+        <span className="float-cab cab-a" />
+        <span className="float-cab cab-b" />
+        <span className="float-cab cab-c" />
+      </div>
       <header className="welcome-hero">
         <p className="brand">Arcade Attic</p>
         <h1>Build your clubhouse. Drop in tiny games.</h1>
         <p className="lede">
-          Creation first, party play second. Friends &amp; family only — no stranger chat.
+          Creation first, party play second. Friends &amp; family only — stickers, not stranger
+          chat.
         </p>
       </header>
 
@@ -45,6 +50,7 @@ export function Welcome({ onCreate, onJoin, hasSave, onContinue }: Props) {
               onChange={(e) => setName(e.target.value)}
               maxLength={24}
               placeholder="Loft Lab"
+              aria-label="Attic name"
               required
             />
           </label>
@@ -57,17 +63,18 @@ export function Welcome({ onCreate, onJoin, hasSave, onContinue }: Props) {
           className="panel"
           onSubmit={(e) => {
             e.preventDefault()
-            if (code.trim()) onJoin(code.trim().toUpperCase())
+            if (code.trim()) onJoin(code.trim())
           }}
         >
           <h2>Visit a friend’s attic</h2>
           <label>
-            Friend code
+            Friend code or attic token
             <input
               value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="ATTIC-DEMO"
-              maxLength={16}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="ATTIC-DEMO or AA2.…"
+              maxLength={8000}
+              aria-label="Friend code"
             />
           </label>
           <div className="chip-row">

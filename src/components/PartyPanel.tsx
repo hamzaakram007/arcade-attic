@@ -1,4 +1,11 @@
+import { useState } from 'react'
 import { SAMPLE_FRIENDS } from '../data/friends'
+import {
+  buildVisitHash,
+  copyText,
+  encodeShareToken,
+  publishShortCode,
+} from '../share'
 import type { AtticState, Friend, Machine } from '../types'
 
 interface Props {
@@ -7,6 +14,7 @@ interface Props {
   onSimulateJoin: (friend: Friend) => void
   onFriendPlay: (friendId: string, machine: Machine) => void
   onToggleParty: () => void
+  onCheer: (friendId: string) => void
 }
 
 export function PartyPanel({
@@ -15,25 +23,102 @@ export function PartyPanel({
   onSimulateJoin,
   onFriendPlay,
   onToggleParty,
+  onCheer,
 }: Props) {
   const available = SAMPLE_FRIENDS.filter((f) => !attic.friends.some((x) => x.id === f.id))
+  const [copied, setCopied] = useState<'code' | 'link' | 'token' | null>(null)
+
+  const flashCopy = (kind: 'code' | 'link' | 'token') => {
+    setCopied(kind)
+    window.setTimeout(() => setCopied(null), 1800)
+  }
+
+  const shareLink = () => {
+    publishShortCode(attic)
+    const url = `${window.location.origin}${window.location.pathname}${buildVisitHash(attic)}`
+    return url
+  }
 
   return (
     <div className="overlay">
       <div className="sheet party-sheet">
         <header>
           <h2>Attic party</h2>
-          <p>Invite approved pals — no open stranger lobby.</p>
+          <p>Invite approved pals — stickers &amp; cheers only, no open chat.</p>
         </header>
 
         <div className="invite-card">
-          <span className="label">Your friend code</span>
+          <span className="label">Your shareable attic code</span>
           <strong className="code">{attic.code}</strong>
-          <p className="muted">Share with siblings or classmates you know in real life.</p>
+          <p className="muted">
+            Friends type this code on the welcome screen. Opening a party also saves it on this
+            device.
+          </p>
+          <div className="chip-row">
+            <button
+              type="button"
+              className="btn tight"
+              onClick={async () => {
+                publishShortCode(attic)
+                if (await copyText(attic.code)) flashCopy('code')
+              }}
+            >
+              {copied === 'code' ? 'Copied!' : 'Copy code'}
+            </button>
+            <button
+              type="button"
+              className="btn tight"
+              onClick={async () => {
+                if (await copyText(shareLink())) flashCopy('link')
+              }}
+            >
+              {copied === 'link' ? 'Link copied!' : 'Copy visit link'}
+            </button>
+            <button
+              type="button"
+              className="btn tight"
+              onClick={async () => {
+                if (await copyText(encodeShareToken(attic))) flashCopy('token')
+              }}
+            >
+              {copied === 'token' ? 'Token copied!' : 'Copy attic token'}
+            </button>
+          </div>
           <button type="button" className="btn primary" onClick={onToggleParty}>
-            {attic.partyOpen ? 'Party is open' : 'Open party for friends'}
+            {attic.partyOpen ? 'Party is open ✓' : 'Open party for friends'}
           </button>
         </div>
+
+        {attic.compliments.length > 0 && (
+          <section>
+            <h3>Compliments wall</h3>
+            <ul className="compliment-list">
+              {attic.compliments
+                .slice()
+                .reverse()
+                .slice(0, 8)
+                .map((c) => (
+                  <li key={c.id}>
+                    <span>
+                      {c.kind === 'star'
+                        ? '⭐'
+                        : c.kind === 'fire'
+                          ? '🔥'
+                          : c.kind === 'heart'
+                            ? '💛'
+                            : c.kind === 'clap'
+                              ? '👏'
+                              : '😮'}
+                    </span>
+                    <span>
+                      <strong>{c.from}</strong>
+                      <small> left a sticker</small>
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        )}
 
         <section>
           <h3>In your attic now</h3>
@@ -51,18 +136,31 @@ export function PartyPanel({
                     <small>
                       {f.status === 'playing'
                         ? `Playing ${attic.machines.find((m) => m.id === f.playingMachineId)?.name ?? 'a cabinet'}`
-                        : f.status}
+                        : f.status === 'cheering'
+                          ? 'Cheering (no chat)'
+                          : 'Visiting'}
                     </small>
                   </div>
-                  {attic.machines[0] && f.status !== 'playing' && (
-                    <button
-                      type="button"
-                      className="btn ghost tight"
-                      onClick={() => onFriendPlay(f.id, attic.machines[0])}
-                    >
-                      Let them play
-                    </button>
-                  )}
+                  <div className="friend-actions">
+                    {attic.machines[0] && f.status !== 'playing' && (
+                      <button
+                        type="button"
+                        className="btn ghost tight"
+                        onClick={() => onFriendPlay(f.id, attic.machines[0])}
+                      >
+                        Let play
+                      </button>
+                    )}
+                    {f.status !== 'cheering' && (
+                      <button
+                        type="button"
+                        className="btn ghost tight"
+                        onClick={() => onCheer(f.id)}
+                      >
+                        Cheer
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
